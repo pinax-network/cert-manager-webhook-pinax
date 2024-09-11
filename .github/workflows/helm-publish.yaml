@@ -1,0 +1,40 @@
+name: Publish helm chart
+permissions: read-all
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-helm-oci:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      packages: write
+    outputs:
+      chart-digest: ${{ steps.helm_publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: "Extract Version"
+        id: extract_version
+        run: |
+          GIT_TAG=${GITHUB_REF##*/}
+          VERSION=${GIT_TAG##*v}
+          echo "version=$(echo $VERSION)" >> $GITHUB_OUTPUT
+      - name: Helm | Publish
+        id: helm_publish
+        uses: peak-scale/github-actions/helm-oci-chart@38322faabccd75abfa581c435e367d446b6d2c3b # v0.1.0
+        with:
+          registry: ghcr.io
+          repository: ${{ github.repository_owner }}/charts
+          name: "cert-manager-webhook-pinax"
+          version: ${{ steps.extract_version.outputs.version }}
+          app-version: v${{ steps.extract_version.outputs.version }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          update-dependencies: "true" # Defaults to false
